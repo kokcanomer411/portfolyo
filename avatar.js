@@ -11,39 +11,46 @@ function setSpeaking(value){speaking=value;playButton.classList.toggle('is-speak
 function rotationState(){rotationButton.setAttribute('aria-pressed',String(paused));rotationButton.setAttribute('aria-label',paused?'Otomatik döndür':'Dönüşü durdur');rotationButton.textContent=paused?'▶':'Ⅱ';}
 rotationState();rotationButton.addEventListener('click',()=>{paused=!paused;rotationState();});
 reduced.addEventListener('change',()=>{paused=reduced.matches;rotationState();});
-playButton.addEventListener('click',async()=>{if(!player.paused){player.pause();return;}try{status.textContent='';await player.play();if(!audioContext){const AudioCtx=window.AudioContext||window.webkitAudioContext;if(AudioCtx){audioContext=new AudioCtx();analyser=audioContext.createAnalyser();analyser.fftSize=256;const source=audioContext.createMediaElementSource(player);source.connect(analyser);analyser.connect(audioContext.destination);bins=new Uint8Array(analyser.frequencyBinCount);}}await audioContext?.resume();}catch{status.textContent='Ses açılamadı. Tekrar deneyebilir veya tanıtımı okuyabilirsin.';setSpeaking(false);}});
+playButton.addEventListener('click',async()=>{if(!player.paused){player.pause();return;}try{status.textContent='';await window.characterEntrance?.();await player.play();if(!audioContext){const AudioCtx=window.AudioContext||window.webkitAudioContext;if(AudioCtx){audioContext=new AudioCtx();analyser=audioContext.createAnalyser();analyser.fftSize=256;const source=audioContext.createMediaElementSource(player);source.connect(analyser);analyser.connect(audioContext.destination);bins=new Uint8Array(analyser.frequencyBinCount);}}await audioContext?.resume();}catch{status.textContent='Ses açılamadı. Tekrar deneyebilir veya tanıtımı okuyabilirsin.';setSpeaking(false);}});
 player.addEventListener('play',()=>setSpeaking(true));player.addEventListener('pause',()=>setSpeaking(false));player.addEventListener('ended',()=>setSpeaking(false));player.addEventListener('error',()=>{setSpeaking(false);status.textContent='Ses yüklenemedi. Tanıtım metnini aşağıdan okuyabilirsin.';});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)player.pause();});
 (async()=>{try{
 const THREE=await import('./assets/vendor/three.module.min.js');
-const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;view.appendChild(renderer.domElement);
-const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(30,1,.1,100);camera.position.set(0,.1,7.5);camera.lookAt(0,0,0);
 const {GLTFLoader}=await import('./assets/vendor/GLTFLoader.js');
-const gltf=await new GLTFLoader().loadAsync('./assets/omer/omer-refined.glb');
-const model=gltf.scene;const bounds=new THREE.Box3().setFromObject(model);const center=bounds.getCenter(new THREE.Vector3());const size=bounds.getSize(new THREE.Vector3());
-model.position.sub(center);const fit=new THREE.Group();fit.add(model);fit.scale.setScalar(3.35/size.y);
-const pivot=new THREE.Group();pivot.add(fit);scene.add(pivot);
-model.traverse(o=>{if(o.isMesh){o.material.roughness=.82;o.material.metalness=0;}});
-scene.add(new THREE.AmbientLight(0xffffff,2.2));const key=new THREE.DirectionalLight(0xfff3df,.9);key.position.set(-3,4,6);scene.add(key);const fill=new THREE.DirectionalLight(0xc8d7ff,.45);fill.position.set(4,0,3);scene.add(fill);const rim=new THREE.DirectionalLight(0xffd1a4,1.1);rim.position.set(2,3,-5);scene.add(rim);
-
-let targetY=0,targetX=0,drag=false,lastX=0,lastY=0,manualUntil=0,time=0,last=0,visible=true;
-function resize(){const {width,height}=view.getBoundingClientRect();renderer.setSize(width,height,false);camera.aspect=width/height;camera.position.z=Math.max(8,7/camera.aspect);camera.updateProjectionMatrix();}
-new ResizeObserver(resize).observe(view);resize();
-view.classList.add('model-ready');
-view.tabIndex=0;view.setAttribute('role','group');view.setAttribute('aria-label','Ömer’in üç boyutlu portresi. Sürükleyerek veya ok tuşlarıyla döndür.');
-view.addEventListener('pointerdown',e=>{drag=true;lastX=e.clientX;lastY=e.clientY;view.setPointerCapture(e.pointerId);manualUntil=Infinity;});
-view.addEventListener('pointermove',e=>{if(!drag)return;targetY+=(e.clientX-lastX)*.012;targetX=THREE.MathUtils.clamp(targetX+(e.clientY-lastY)*.006,-.65,.65);lastX=e.clientX;lastY=e.clientY;});
-// Absolute pointer position spans a complete revolution, with the nearest turn
-// chosen so crossing an edge never makes the head snap backwards.
-window.addEventListener('pointermove',e=>{if(drag||e.pointerType==='touch')return;const rect=view.getBoundingClientRect();const pointerX=(e.clientX-rect.left-rect.width/2)/rect.width;const angle=THREE.MathUtils.clamp(pointerX,-1,1)*.65;targetY+=Math.atan2(Math.sin(angle-targetY),Math.cos(angle-targetY));targetX=THREE.MathUtils.clamp((e.clientY/window.innerHeight-.5)*.65,-.4,.4);manualUntil=performance.now()+2200;},{passive:true});
-function endDrag(){drag=false;manualUntil=performance.now()+3500;}view.addEventListener('pointerup',endDrag);view.addEventListener('pointercancel',endDrag);view.addEventListener('lostpointercapture',endDrag);
-view.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();targetY+=(e.key==='ArrowLeft'?-.25:e.key==='ArrowRight'?.25:0);targetX=THREE.MathUtils.clamp(targetX+(e.key==='ArrowUp'?-.1:e.key==='ArrowDown'?.1:0),-.25,.25);manualUntil=performance.now()+5000;}});
+const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;view.appendChild(renderer.domElement);
+const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(30,1,.1,100);camera.position.set(0,1.62,8.2);camera.lookAt(0,1.60,0);
+const [gltf,words]=await Promise.all([new GLTFLoader().loadAsync('./assets/omer/omer-character.glb'),fetch('./assets/omer/speech-timing.json').then(r=>{if(!r.ok)throw Error('Speech timing unavailable');return r.json();})]);
+const model=gltf.scene;const pivot=new THREE.Group();pivot.add(model);scene.add(pivot);
+const joints={};['HipL','HipR','KneeL','KneeR','ShoulderL','ShoulderR','ElbowL','ElbowR','Face'].forEach(n=>{const o=model.getObjectByName(n);if(o)joints[n]={o,q:o.quaternion.clone()};});
+const faces=[];model.traverse(o=>{if(o.morphTargetDictionary?.Speech!==undefined){faces.push(o);o.material.emissiveMap=o.material.map;o.material.emissive.setHex(0xffffff);o.material.emissiveIntensity=.45;o.material.roughness=.88;}});
+function pose(n,x=0,y=0,z=0){const j=joints[n];if(j)j.o.quaternion.copy(j.q).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(x,y,z)));}
+scene.add(new THREE.HemisphereLight(0xfff4e7,0x303034,2));
+for(const [color,intensity,pos] of [[0xffe5bd,2.5,[-3,5,4]],[0xc3dcff,1,[4,2,3]],[0xffc48b,2,[2,4,-3]]]){const l=new THREE.DirectionalLight(color,intensity);l.position.set(...pos);scene.add(l);}
+// A contact pool anchors the character without a distracting set.
+const ground=new THREE.Mesh(new THREE.CircleGeometry(.72,64),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.23,depthWrite:false}));ground.rotation.x=-Math.PI/2;ground.position.y=.055;scene.add(ground);
+let entrance=0,elapsed=0,last=0,visible=true,targetY=0,targetX=0,drag=false,lastX=0,lastY=0,manualUntil=0;
+let readyResolve;const entranceReady=new Promise(r=>readyResolve=r);window.characterEntrance=()=>entranceReady;
+function resize(){const {width,height}=view.getBoundingClientRect();renderer.setSize(width,height,false);camera.aspect=width/height;camera.position.z=Math.max(7.5,4.5/camera.aspect);camera.updateProjectionMatrix();}new ResizeObserver(resize).observe(view);resize();
+view.classList.add('model-ready');view.tabIndex=0;view.setAttribute('role','group');view.setAttribute('aria-label','Kameralı tam boy Ömer karakteri. Sürükleyerek veya ok tuşlarıyla 360 derece döndür.');
+view.addEventListener('pointerdown',e=>{drag=true;lastX=e.clientX;lastY=e.clientY;view.setPointerCapture(e.pointerId);});
+view.addEventListener('pointermove',e=>{if(drag){targetY+=(e.clientX-lastX)*.012;targetX=THREE.MathUtils.clamp(targetX+(e.clientY-lastY)*.004,-.15,.15);lastX=e.clientX;lastY=e.clientY;}});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])view.addEventListener(event,()=>{drag=false;manualUntil=performance.now()+3000;});
+view.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();targetY+=e.key==='ArrowLeft'?-.3:.3;manualUntil=performance.now()+3000;}});
+window.addEventListener('pointermove',e=>{if(drag||e.pointerType==='touch'||performance.now()<manualUntil)return;const r=view.getBoundingClientRect();targetY=THREE.MathUtils.clamp((e.clientX-r.left-r.width/2)/r.width,-1,1)*.35;},{passive:true});
 new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;},{threshold:.01}).observe(view);
-function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.05);last=now;if(document.hidden||!visible)return;if(!paused&&!reduced.matches){time+=dt;if(now>manualUntil){targetY+=dt*.24;targetX*=Math.exp(-dt*2);}}
-const ease=1-Math.exp(-dt*9);pivot.rotation.y+=(targetY-pivot.rotation.y)*ease;pivot.rotation.x+=(targetX-pivot.rotation.x)*ease;pivot.position.y=!paused&&!reduced.matches?Math.sin(time*.9)*.025:0;
-let energy=0;if(speaking&&analyser){analyser.getByteFrequencyData(bins);for(let i=2;i<45;i++)energy+=bins[i];energy=Math.min(1,energy/(43*95));}level+=(energy-level)*.3;
-
-renderer.render(scene,camera);}
-requestAnimationFrame(frame);
-renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();view.classList.remove('model-ready');document.querySelector('#avatar-hint').textContent='Ömer · Görsel hikâyeler';});
-}catch(error){rotationButton.hidden=true;document.querySelector('#avatar-hint').textContent='Ömer · Görsel hikâyeler';view.querySelector('.avatar-loading').textContent='3D karakter yüklenemedi. Sayfayı yenileyebilirsin.';console.warn('3D portrait unavailable:',error);}})();
+function mouthAt(t){const w=words.find(w=>t>=w.start&&t<w.start+w.duration);if(!w)return 0;const part=(t-w.start)/w.duration;const letters=Array.from(w.text.toLocaleLowerCase('tr'));const f=part*letters.length;const c=letters[Math.min(letters.length-1,Math.floor(f))];const a='aâe'.includes(c)?1:'ıi'.includes(c)?.4:'oöuü'.includes(c)?.7:'bmp'.includes(c)?0:.2;return a*(.45+.55*Math.sin((f%1)*Math.PI));}
+let mouth=0;
+function frame(now){requestAnimationFrame(frame);const dt=last?Math.min((now-last)/1000,.05):0;last=now;if(document.hidden||!visible)return;elapsed+=dt;entrance=reduced.matches?3.6:Math.min(3.6,entrance+dt);const u=entrance/3.6;const finish=THREE.MathUtils.smoothstep(u,.78,1);const walk=(1-finish)*(u<1?1:0);const stride=Math.sin(entrance*8.5)*.40*walk;
+pivot.position.set(-.50*(1-u),Math.abs(Math.sin(entrance*8.5))*.035*walk,-1.6*(1-u));ground.scale.setScalar(.85+.15*u);
+pose('HipL',stride);pose('HipR',-stride);pose('KneeL',Math.max(0,-Math.sin(entrance*8.5))*.65*walk);pose('KneeR',Math.max(0,Math.sin(entrance*8.5))*.65*walk);
+if(u===1){readyResolve();if(!paused&&!reduced.matches&&!drag)targetY+=dt*.22;}
+const ease=1-Math.exp(-dt*6);pivot.rotation.y+=(targetY-pivot.rotation.y)*ease;
+const greeting=!reduced.matches?Math.sin(Math.min(1,Math.max(0,(elapsed-3.2)/3))*Math.PI):0;
+pose('ShoulderL',-stride*.5,0,-greeting*.85);pose('ElbowL',-.12-greeting*.4,0,-greeting*.9-Math.sin(elapsed*8)*greeting*.12);
+pose('ShoulderR',stride*.4,0,.08);pose('ElbowR',-.12);
+const t=player.currentTime;const desiredMouth=speaking?mouthAt(t):0;mouth+=(desiredMouth-mouth)*Math.min(1,dt*20);
+for(const f of faces)f.morphTargetInfluences[f.morphTargetDictionary.Speech]=mouth;
+pose('Face',speaking?Math.sin(t*2.1)*.025:0,Math.sin(elapsed*.65)*.025,0);
+renderer.render(scene,camera);
+}requestAnimationFrame(frame);
+}catch(error){rotationButton.hidden=true;view.querySelector('.avatar-loading').textContent='3D karakter yüklenemedi. Sayfayı yenileyebilirsin.';status.textContent='Sesli tanıtımı yine dinleyebilirsin.';console.warn('Character unavailable',error);}})();

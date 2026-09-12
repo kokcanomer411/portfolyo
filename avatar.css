@@ -2,3 +2,6 @@
 .avatar-intro{margin:0 5%}#head-view:focus-visible{outline:1px solid var(--accent);outline-offset:3px;border-radius:12px}@media(max-width:600px){.avatar-intro{margin:0 6%}}
 
 .avatar-loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px}.model-ready .avatar-loading{display:none}
+
+/* Full-body character framing */
+#head-view{height:590px}.avatar-stage{min-height:600px}.avatar-orbit{width:84%;opacity:.55}.avatar-controls{bottom:0}@media(max-width:800px){#head-view{height:460px}.avatar-stage{min-height:480px;max-width:450px}}
