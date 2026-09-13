@@ -19,13 +19,13 @@ const THREE=await import('./assets/vendor/three.module.min.js');
 const {GLTFLoader}=await import('./assets/vendor/GLTFLoader.js');
 const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;view.appendChild(renderer.domElement);
 const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(30,1,.1,100);camera.position.set(0,1.62,8.2);camera.lookAt(0,1.60,0);
-const [gltf,words]=await Promise.all([new GLTFLoader().loadAsync('./assets/omer/omer-character.glb'),fetch('./assets/omer/speech-timing.json').then(r=>{if(!r.ok)throw Error('Speech timing unavailable');return r.json();})]);
+const [gltf,words]=await Promise.all([new GLTFLoader().loadAsync('./assets/omer/omer-character-v2.glb'),fetch('./assets/omer/speech-timing.json').then(r=>{if(!r.ok)throw Error('Speech timing unavailable');return r.json();})]);
 const model=gltf.scene;const pivot=new THREE.Group();pivot.add(model);scene.add(pivot);
-const joints={};['HipL','HipR','KneeL','KneeR','ShoulderL','ShoulderR','ElbowL','ElbowR','Face'].forEach(n=>{const o=model.getObjectByName(n);if(o)joints[n]={o,q:o.quaternion.clone()};});
-const faces=[];model.traverse(o=>{if(o.morphTargetDictionary?.Speech!==undefined){faces.push(o);o.material.emissiveMap=o.material.map;o.material.emissive.setHex(0xffffff);o.material.emissiveIntensity=.45;o.material.roughness=.88;}});
+const joints={};['HipL','HipR','KneeL','KneeR','BHipL','BHipR','BKneeL','BKneeR','ShoulderL','ShoulderR','ElbowL','ElbowR','Face'].forEach(n=>{const o=model.getObjectByName(n);if(o)joints[n]={o,q:o.quaternion.clone()};});
+const faces=[];model.traverse(o=>{if(o.morphTargetDictionary?.Speech!==undefined){faces.push(o);o.material.emissiveMap=o.material.map;o.material.emissive.setHex(0xffffff);o.material.emissiveIntensity=.25;o.material.roughness=.88;}});
 function pose(n,x=0,y=0,z=0){const j=joints[n];if(j)j.o.quaternion.copy(j.q).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(x,y,z)));}
 scene.add(new THREE.HemisphereLight(0xfff4e7,0x303034,2));
-for(const [color,intensity,pos] of [[0xffe5bd,2.5,[-3,5,4]],[0xc3dcff,1,[4,2,3]],[0xffc48b,2,[2,4,-3]]]){const l=new THREE.DirectionalLight(color,intensity);l.position.set(...pos);scene.add(l);}
+for(const [color,intensity,pos] of [[0xfff1db,1.2,[-3,5,4]],[0xdfebff,1.4,[4,2,3]],[0xffdfbd,1.0,[2,4,-3]]]){const l=new THREE.DirectionalLight(color,intensity);l.position.set(...pos);scene.add(l);}
 // A contact pool anchors the character without a distracting set.
 const ground=new THREE.Mesh(new THREE.CircleGeometry(.72,64),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.23,depthWrite:false}));ground.rotation.x=-Math.PI/2;ground.position.y=.055;scene.add(ground);
 let entrance=0,elapsed=0,last=0,visible=true,targetY=0,targetX=0,drag=false,lastX=0,lastY=0,manualUntil=0;
@@ -41,8 +41,8 @@ new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;},{threshol
 function mouthAt(t){const w=words.find(w=>t>=w.start&&t<w.start+w.duration);if(!w)return 0;const part=(t-w.start)/w.duration;const letters=Array.from(w.text.toLocaleLowerCase('tr'));const f=part*letters.length;const c=letters[Math.min(letters.length-1,Math.floor(f))];const a='aâe'.includes(c)?1:'ıi'.includes(c)?.4:'oöuü'.includes(c)?.7:'bmp'.includes(c)?0:.2;return a*(.45+.55*Math.sin((f%1)*Math.PI));}
 let mouth=0;
 function frame(now){requestAnimationFrame(frame);const dt=last?Math.min((now-last)/1000,.05):0;last=now;if(document.hidden||!visible)return;elapsed+=dt;entrance=reduced.matches?3.6:Math.min(3.6,entrance+dt);const u=entrance/3.6;const finish=THREE.MathUtils.smoothstep(u,.78,1);const walk=(1-finish)*(u<1?1:0);const stride=Math.sin(entrance*8.5)*.40*walk;
-pivot.position.set(-.50*(1-u),Math.abs(Math.sin(entrance*8.5))*.035*walk,-1.6*(1-u));ground.scale.setScalar(.85+.15*u);
-pose('HipL',stride);pose('HipR',-stride);pose('KneeL',Math.max(0,-Math.sin(entrance*8.5))*.65*walk);pose('KneeR',Math.max(0,Math.sin(entrance*8.5))*.65*walk);
+pivot.position.set(-.50*(1-u),Math.abs(Math.sin(entrance*8.5))*.035*walk,-1.6*(1-u));ground.scale.setScalar(.85+.15*u);ground.position.x=pivot.position.x;ground.position.z=pivot.position.z;
+pose('HipL',stride);pose('HipR',-stride);pose('BHipL',stride);pose('BHipR',-stride);pose('BKneeL',Math.max(0,-Math.sin(entrance*8.5))*.65*walk);pose('BKneeR',Math.max(0,Math.sin(entrance*8.5))*.65*walk);pose('KneeL',Math.max(0,-Math.sin(entrance*8.5))*.65*walk);pose('KneeR',Math.max(0,Math.sin(entrance*8.5))*.65*walk);
 if(u===1){readyResolve();if(!paused&&!reduced.matches&&!drag)targetY+=dt*.22;}
 const ease=1-Math.exp(-dt*6);pivot.rotation.y+=(targetY-pivot.rotation.y)*ease;
 const greeting=!reduced.matches?Math.sin(Math.min(1,Math.max(0,(elapsed-3.2)/3))*Math.PI):0;
